@@ -121,14 +121,9 @@
                 <artifactId>spotless-maven-plugin</artifactId>
                 <version>2.43.0</version> <!-- Use the latest stable version -->
                 <configuration>
+                    <lineEndings>UNIX</lineEndings> <!-- Forces LF line endings -->
                     <java>
-                        <!-- Clean up imports, remove unused ones -->
-                        <removeUnusedImports />
-                        <!-- Apply Google Java Format -->
-                        <googleJavaFormat>
-                            <version>1.17.0</version>
-                            <style>GOOGLE</style>
-                        </googleJavaFormat>
+                        <googleJavaFormat/>
                     </java>
                 </configuration>
                 <executions>
