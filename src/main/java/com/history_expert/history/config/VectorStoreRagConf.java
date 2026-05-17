@@ -2,6 +2,7 @@ package com.history_expert.history.config;
 
 import com.history_expert.history.advisor.TokenUsageAuditAdvisor;
 import com.history_expert.history.rag.PIIMaskingDocumentPostProcessor;
+import java.util.List;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
@@ -16,40 +17,46 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.List;
-
 @Configuration
 public class VectorStoreRagConf {
-    @Bean
-    ChatMemory chatMemory(JdbcChatMemoryRepository jdbcChatMemoryRepository){
-        return MessageWindowChatMemory.builder().maxMessages(10)
-                .chatMemoryRepository(jdbcChatMemoryRepository).build();
-    }
+  @Bean
+  ChatMemory chatMemory(JdbcChatMemoryRepository jdbcChatMemoryRepository) {
+    return MessageWindowChatMemory.builder()
+        .maxMessages(10)
+        .chatMemoryRepository(jdbcChatMemoryRepository)
+        .build();
+  }
 
+  @Bean("vectorStoreChatClient")
+  public ChatClient chatClient(
+      ChatClient.Builder chatClientBuilder,
+      ChatMemory chatMemory,
+      RetrievalAugmentationAdvisor retrievalAugmentationAdvisor) {
+    Advisor loggerAdvisor = new SimpleLoggerAdvisor();
+    Advisor tokenUsageAdvisor = new TokenUsageAuditAdvisor();
+    Advisor memoryAdvisor = MessageChatMemoryAdvisor.builder(chatMemory).build();
+    return chatClientBuilder
+        .defaultAdvisors(
+            List.of(loggerAdvisor, memoryAdvisor, tokenUsageAdvisor, retrievalAugmentationAdvisor))
+        .build();
+  }
 
-    @Bean("vectorStoreChatClient")
-    public ChatClient chatClient(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory,
-                                 RetrievalAugmentationAdvisor retrievalAugmentationAdvisor){
-        Advisor loggerAdvisor = new SimpleLoggerAdvisor();
-        Advisor tokenUsageAdvisor = new TokenUsageAuditAdvisor();
-        Advisor memoryAdvisor = MessageChatMemoryAdvisor.builder(chatMemory).build();
-        return chatClientBuilder
-                .defaultAdvisors(List.of(loggerAdvisor,memoryAdvisor,tokenUsageAdvisor,
-                        retrievalAugmentationAdvisor))
-                .build();
-    }
-
-    @Bean
-    RetrievalAugmentationAdvisor retrievalAugmentationAdvisor(VectorStore vectorStore,
-                                                              ChatClient.Builder chatClientBuilder){
-        return RetrievalAugmentationAdvisor.builder()
-                .queryTransformers(TranslationQueryTransformer.builder()
-                        .chatClientBuilder(chatClientBuilder.clone())
-                        .targetLanguage("english").build())
-                .documentRetriever(VectorStoreDocumentRetriever.builder().vectorStore(vectorStore)
-                        .topK(3).similarityThreshold(0.5).build())
-                .documentPostProcessors(PIIMaskingDocumentPostProcessor.builder())
-                .build();
-    }
-
+  @Bean
+  RetrievalAugmentationAdvisor retrievalAugmentationAdvisor(
+      VectorStore vectorStore, ChatClient.Builder chatClientBuilder) {
+    return RetrievalAugmentationAdvisor.builder()
+        .queryTransformers(
+            TranslationQueryTransformer.builder()
+                .chatClientBuilder(chatClientBuilder.clone())
+                .targetLanguage("english")
+                .build())
+        .documentRetriever(
+            VectorStoreDocumentRetriever.builder()
+                .vectorStore(vectorStore)
+                .topK(3)
+                .similarityThreshold(0.5)
+                .build())
+        .documentPostProcessors(PIIMaskingDocumentPostProcessor.builder())
+        .build();
+  }
 }
